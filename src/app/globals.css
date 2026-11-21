@@ -1,0 +1,11 @@
+﻿@import "tailwindcss";
+
+:root { color-scheme: light; }
+body { margin: 0; background: #f3f6fb; color: #1f2937; font-family: Tahoma, Arial, sans-serif; }
+* { box-sizing: border-box; }
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px 10px; border-bottom: 1px solid #e5ebf3; text-align: right; font-size: 14px; }
+th { background: #f8fafc; color: #475569; font-weight: 700; }
+.status { display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.s-PRESENT { background:#ecfdf5; color:#047857; } .s-GRACE{background:#fffbeb;color:#b45309;} .s-LATE{background:#fef2f2;color:#b91c1c;} .s-INCOMPLETE{background:#eff6ff;color:#1d4ed8;} .s-ABSENT{background:#f1f5f9;color:#475569;} .s-LEAVE{background:#f5f3ff;color:#6d28d9;}

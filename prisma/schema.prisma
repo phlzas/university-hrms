@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("HR") // ADMIN, HR, VIEWER
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model Employee {
+  id             String   @id @default(cuid())
+  employeeCode   String   @unique
+  name           String
+  department     String?
+  title          String?
+  phone          String?
+  contractStart  DateTime?
+  contractEnd    DateTime?
+  insuranceYears Int?
+  weeklyDaysOff  String?
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  attendance     AttendanceRecord[]
+  leaves         LeaveRequest[]
+  documents      Document[]
+}
+
+model AttendanceRecord {
+  id          String   @id @default(cuid())
+  employeeId  String
+  date        DateTime
+  checkIn     String?
+  checkOut    String?
+  status      String   @default("PRESENT") // PRESENT, GRACE, LATE, ABSENT, INCOMPLETE, LEAVE
+  minutesLate Int      @default(0)
+  source      String   @default("MANUAL")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, date])
+}
+
+model LeaveRequest {
+  id          String   @id @default(cuid())
+  employeeId  String
+  type        String
+  startDate   DateTime
+  endDate     DateTime
+  days        Int
+  reason      String?
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  decidedBy   String?
+  decidedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, startDate])
+}
+
+model Document {
+  id          String    @id @default(cuid())
+  employeeId  String?
+  title       String
+  category    String?
+  fileName    String
+  filePath    String
+  mimeType    String?
+  size        Int?
+  uploadedBy  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+}
