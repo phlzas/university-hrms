@@ -47,3 +47,15 @@ prisma/dev.db
 prisma/dev.db-journal
 .env
 
+
+dev.out.log
+dev.err.log
+tmp-*.js
+tmp-*.png
+tmp-*.txt
+
+# local workflow artifacts
+.omo/
+.playwright-cli/
+prisma/*.backup-*
+
