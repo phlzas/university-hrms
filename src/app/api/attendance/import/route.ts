@@ -1,49 +1,83 @@
 ﻿import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { classifyAttendance, normalizeDate, normalizeTime } from "@/lib/attendance";
-import * as XLSX from "xlsx";
+import { fail, ok } from "@/lib/http";
+import { canImport } from "@/lib/permissions";
 
-function norm(k: string) { return k.toLowerCase().replace(/[\s_\-\.]/g, ""); }
+// مفاتيح الأعمدة المقبولة - accepted column keys (English/Arabic variants from HR files)
+const EMP_KEYS = ["id","employeeid","employeecode","code","الرقم","رقم_الموظف","رقم الموظف"];
+const NAME_KEYS = ["names","name","employeename","fullname","الاسم","اسم الموظف","اسم_الموظف"];
+const IN_KEYS = ["quentin","checkin","in","timein","دخول","وقت الدخول","وقت_الدخول","حضور"];
+const OUT_KEYS = ["out","checkout","timeout","خروج","وقت الخروج","وقت_الخروج","انصراف"];
+const DATE_KEYS = ["date","day","التاريخ","تاريخ"];
+
+// pick() => إيجاد أول قيمة مطابقة من الأعمدة المحتملة - find first matching column value
 function pick(row: Record<string, unknown>, keys: string[]) {
-  for (const [k, v] of Object.entries(row)) { const nk = norm(k); if (keys.some(kk => nk === norm(kk) || nk.includes(norm(kk)))) return v; }
+  for (const [k, v] of Object.entries(row)) {
+    const nk = k.toLowerCase().replace(/\s+|_/g, "");
+    if (keys.some((key) => nk === key.toLowerCase().replace(/\s+|_/g, ""))) return v;
+  }
   return undefined;
 }
-const ID_KEYS = ["id","employeeid","employee_id","empid","emp_id","رقم","الرقم","رقمالموظف","كودالموظف","المعرف"];
-const NAME_KEYS = ["name","names","employee","employeename","employee_name","اسم","الاسم","اسمالموظف","الموظف","الأسماء"];
-const DATE_KEYS = ["date","day","التاريخ","اليوم","تاريخ"];
-const IN_KEYS = ["checkin","check_in","in","timein","time_in","arrival","quentin","دخول","وقتالدخول","الحضور","وقتالحضور"];
-const OUT_KEYS = ["checkout","check_out","out","timeout","time_out","departure","خروج","وقتالخروج","الانصراف","وقتالانصراف"];
 
+// POST /api/attendance/import
+// استيراد ملف حضور Excel/CSV - import attendance from uploaded spreadsheet
 export async function POST(req: Request) {
-  const s = await getSession();
-  if (!s) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  if (s.role === "VIEWER") return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  const form = await req.formData();
-  const file = form.get("file") as File | null;
-  if (!file) return NextResponse.json({ error: "file required" }, { status: 400 });
-  const buf = Buffer.from(await file.arrayBuffer());
-  const wb = XLSX.read(buf, { type: "buffer", cellDates: true });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+  try {
+    const session = await getSession();
+    if (!session) return fail("UNAUTHORIZED", "غير مصرح - authentication required", 401);
+    if (!canImport(session.role)) return fail("FORBIDDEN", "غير مصرح - forbidden", 403);
 
-  let imported = 0; const warnings: string[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const rawId = pick(row, ID_KEYS); const rawName = pick(row, NAME_KEYS); const rawDate = pick(row, DATE_KEYS);
-    const rawIn = pick(row, IN_KEYS); const rawOut = pick(row, OUT_KEYS);
-    const date = normalizeDate(rawDate) ?? normalizeDate(rawIn) ?? normalizeDate(rawOut);
-    const checkIn = normalizeTime(rawIn); const checkOut = normalizeTime(rawOut);
-    const employeeCode = String(rawId ?? "").trim(); const employeeName = String(rawName ?? "").trim();
-    if (!date && !employeeCode && !employeeName && !checkIn && !checkOut) continue;
-    if (!employeeCode && !employeeName) { warnings.push(`صف ${i + 2}: بدون معرف/اسم`); continue; }
-    if (!date) { warnings.push(`صف ${i + 2}: تاريخ غير صالح`); continue; }
-    const code = employeeCode || employeeName;
-    let emp = await prisma.employee.findUnique({ where: { employeeCode: code } });
-    if (!emp) emp = await prisma.employee.create({ data: { employeeCode: code, name: employeeName || `موظف ${code}` } });
-    const { status, minutesLate } = classifyAttendance(checkIn, checkOut, "08:00", 20);
-    await prisma.attendanceRecord.create({ data: { employeeId: emp.id, date, checkIn, checkOut, status, minutesLate, source: "IMPORT" } });
-    imported++;
+    const form = await req.formData();
+    const file = form.get("file") as File | null;
+    if (!file) return fail("MISSING_FILE", "ملف الاستيراد مطلوب - file is required", 400);
+
+    // قراءة الملف وتحويله لصفوف - read workbook and convert first sheet to JSON rows
+    const ab = await file.arrayBuffer();
+    const wb = XLSX.read(ab, { type: "array", cellDates: true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+
+    let imported = 0;
+    const errors: Array<{ row: number; error: string }> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const employeeCode = String(pick(row, EMP_KEYS) ?? "").trim();
+      const name = String(pick(row, NAME_KEYS) ?? "").trim();
+      const date = normalizeDate(pick(row, DATE_KEYS) ?? new Date());
+      const checkIn = normalizeTime(pick(row, IN_KEYS));
+      const checkOut = normalizeTime(pick(row, OUT_KEYS));
+
+      // تحقق أساسي لكل صف - minimal per-row validation
+      if (!employeeCode || !name || !date) {
+        errors.push({ row: i + 2, error: "بيانات ناقصة - missing employeeCode/name/date" });
+        continue;
+      }
+
+      // upsert الموظف لتسهيل الاستيراد - upsert employee so import can create missing staff records
+      const employee = await prisma.employee.upsert({
+        where: { employeeCode },
+        update: { name },
+        create: { employeeCode, name, status: "ACTIVE" },
+      });
+
+      const cls = classifyAttendance(checkIn, checkOut);
+      // منع تكرار نفس اليوم لنفس الموظف - avoid duplicate same-day record
+      const existing = await prisma.attendanceRecord.findFirst({ where: { employeeId: employee.id, date } });
+      if (existing) {
+        await prisma.attendanceRecord.update({ where: { id: existing.id }, data: { checkIn, checkOut, status: cls.status, minutesLate: cls.minutesLate, source: "IMPORT" } });
+      } else {
+        await prisma.attendanceRecord.create({ data: { employeeId: employee.id, date, checkIn, checkOut, status: cls.status, minutesLate: cls.minutesLate, source: "IMPORT" } });
+      }
+      imported++;
+    }
+
+    return ok({ imported, total: rows.length, errors: errors.slice(0, 50) });
+  } catch (e) {
+    console.error("ATTENDANCE_IMPORT_ERROR", e);
+    return fail("INTERNAL_ERROR", "حدث خطأ داخلي أثناء الاستيراد - internal server error during import", 500);
   }
-  return NextResponse.json({ imported, warnings, totalRows: rows.length });
 }
