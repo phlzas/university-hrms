@@ -1,25 +1,45 @@
-﻿import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+// src/app/api/dashboard/route.ts
+// بيانات لوحة التحكم - dashboard summary stats + recent attendance
+
+import { prisma } from '@/lib/db';
+import { getSession } from '@/lib/auth';
+import { fail, ok } from '@/lib/http';
+import { canRead } from '@/lib/permissions';
 
 export async function GET() {
-  const s = await getSession();
-  if (!s) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  const today = new Date(); today.setUTCHours(0,0,0,0);
-  const tomorrow = new Date(today); tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
-  const [employeeCount, todayRecords, pendingLeaves, recentAttendance] = await Promise.all([
-    prisma.employee.count(),
-    prisma.attendanceRecord.findMany({ where: { date: { gte: today, lt: tomorrow } } }),
-    prisma.leaveRequest.count({ where: { status: "PENDING" } }),
-    prisma.attendanceRecord.findMany({ include: { employee: { select: { employeeCode: true, name: true, department: true } } }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 10 }),
-  ]);
-  const stats = {
-    employees: employeeCount,
-    presentToday: todayRecords.filter(r => ["PRESENT","GRACE","LATE","INCOMPLETE"].includes(r.status)).length,
-    lateToday: todayRecords.filter(r => r.status === "LATE").length,
-    graceToday: todayRecords.filter(r => r.status === "GRACE").length,
-    incompleteToday: todayRecords.filter(r => r.status === "INCOMPLETE").length,
-    pendingLeaves,
-  };
-  return NextResponse.json({ stats, recentAttendance });
+  try {
+    const s = await getSession();
+    if (!s) return fail('UNAUTHORIZED', 'غير مصرح - authentication required', 401);
+    if (!canRead(s.role)) return fail('FORBIDDEN', 'غير مصرح - forbidden', 403);
+
+    const today = new Date();
+    const start = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);
+
+    const [employees, attendanceToday, pendingLeaves, recentAttendance, leaves, docsCount] = await Promise.all([
+      prisma.employee.count({ where: { deletedAt: null } }),
+      prisma.attendanceRecord.findMany({ where: { date: { gte: start, lt: end } } }),
+      prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
+      prisma.attendanceRecord.findMany({ include: { employee: true }, orderBy: [{ date: 'desc' }, { createdAt: 'desc' }], take: 8 }),
+      prisma.leaveRequest.findMany({ include: { employee: { select: { name: true, employeeCode: true, department: true } } }, orderBy: { createdAt: 'desc' }, take: 5 }),
+      prisma.document.count({ where: { isDirectory: false } }),
+    ]);
+
+    return ok({
+      stats: {
+        employees,
+        presentToday: attendanceToday.filter((a) => a.status === 'PRESENT').length,
+        lateToday: attendanceToday.filter((a) => a.status === 'LATE').length,
+        graceToday: attendanceToday.filter((a) => a.status === 'GRACE').length,
+        incompleteToday: attendanceToday.filter((a) => a.status === 'INCOMPLETE').length,
+        pendingLeaves,
+        files: docsCount,
+      },
+      recentAttendance,
+      recentLeaves: leaves,
+    });
+  } catch (e) {
+    console.error('DASHBOARD_ERROR', e);
+    return fail('INTERNAL_ERROR', 'خطأ داخلي - internal server error', 500);
+  }
 }
