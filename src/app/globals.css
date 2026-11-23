@@ -1,11 +1,163 @@
-﻿@import "tailwindcss";
+/* src/app/globals.css - الأنماط العامة / Global styles */
+/* تحديث التباين والتخطيط / contrast + layout refresh (Todo 3) */
+@import "tailwindcss";
 
-:root { color-scheme: light; }
-body { margin: 0; background: #f3f6fb; color: #1f2937; font-family: Tahoma, Arial, sans-serif; }
-* { box-sizing: border-box; }
-.table-wrap { overflow: auto; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 12px 10px; border-bottom: 1px solid #e5ebf3; text-align: right; font-size: 14px; }
-th { background: #f8fafc; color: #475569; font-weight: 700; }
-.status { display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-.s-PRESENT { background:#ecfdf5; color:#047857; } .s-GRACE{background:#fffbeb;color:#b45309;} .s-LATE{background:#fef2f2;color:#b91c1c;} .s-INCOMPLETE{background:#eff6ff;color:#1d4ed8;} .s-ABSENT{background:#f1f5f9;color:#475569;} .s-LEAVE{background:#f5f3ff;color:#6d28d9;}
+:root {
+  /* ألوان العلامة - Brand palette (نفس العائلة: كحلي/أزرق) */
+  --font-sans: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --text: #0f172a;
+  --muted: #475569;          /* ~7.4:1 على الأبيض / on white */
+  --primary: #123b70;
+  --primary-2: #1d5da8;
+  --accent: #d97706;
+  --danger: #dc2626;
+  --ok: #16a34a;
+
+  /* حدود أوضح - stronger borders (non-text contrast >= 3:1) */
+  --border: #7c8ba1;         /* ~3.5:1 على الأبيض / on white — حدود الحقول والبطاقات */
+  --border-strong: #475569;  /* ~7.4:1 — hover/active */
+  --border-subtle: #dbe3ee;  /* فواصل زخرفية فقط / decorative row dividers only */
+
+  /* التركيز - focus indicators */
+  --focus: #1d5da8;          /* ~6.5:1 على الأبيض / on white */
+  --focus-ring: rgba(29, 93, 168, .22);
+
+  /* مسافات موحّدة - spacing scale (4px rhythm) */
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* أنصاف الأطراف - radii */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
+
+  /* إزاحة العناصر المثبّتة / sticky offset below app header */
+  --sticky-top: 1.25rem;
+
+  color-scheme: light;
+}
+html, body { min-height: 100%; }
+body { font-family: var(--font-sans); background: radial-gradient(1200px 500px at 90% -10%, #dbeafe66, transparent), var(--bg); color: var(--text); }
+::selection { background: #bfdbfe; color: #0f172a; }
+
+/* مكونات مشتركة - shared components */
+.app-card { min-inline-size:0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: 0 1px 2px rgba(15,23,42,.05); }
+.app-card-hover { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.app-card-hover:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(18,59,112,.10); border-color: var(--primary-2); }
+
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:var(--space-2); border-radius:var(--radius-md); padding:.55rem .9rem; font-size:.875rem; font-weight:600; line-height:1.25; transition:background-color .18s ease, border-color .18s ease, box-shadow .18s ease, filter .18s ease; cursor:pointer; }
+.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); border: 1px solid var(--primary); color:#fff; }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 0 8px 20px rgba(18,59,112,.26); }
+.btn-ghost { background:var(--surface); border:1px solid var(--border); color:#1e293b; }
+.btn-ghost:hover:not(:disabled) { background:var(--surface-alt); border-color:var(--border-strong); }
+.btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+
+.input { width:100%; min-width:0; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:var(--radius-md); padding:.6rem .75rem; font-size:.92rem; line-height:1.35; outline:none; transition:border-color .15s, box-shadow .15s; }
+.input::placeholder { color:var(--muted); opacity:1; }
+.input:hover:not(:disabled) { border-color:var(--border-strong); }
+.input:focus { border-color:var(--focus); box-shadow: 0 0 0 3px var(--focus-ring); }
+.input:disabled { background:var(--surface-alt); color:var(--muted); cursor:not-allowed; }
+select.input { padding-block:.55rem; }
+
+/* حلقة تركيز موحّدة لكل العناصر التفاعلية / shared focus ring for all interactive controls */
+.input:focus-visible, .btn:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+/* أولوية أعلى لحقول النموذج فقط؛ حلقة الشريط الداكن تبقى كما هي / higher specificity for form controls only; dark-shell ring untouched */
+body .input:focus-visible, body .btn:focus-visible, body select:focus-visible, body textarea:focus-visible { outline-color: var(--focus); }
+
+.muted { color: var(--muted); }
+.page-title { font-size: clamp(1.35rem, 1.1rem + .8vw, 1.9rem); font-weight: 800; color: var(--primary); letter-spacing: -.02em; }
+.page-sub { color: var(--muted); font-size: .92rem; margin-top: .2rem; }
+
+/* ── تخطيط النموذج + الجدول / Form + table layout primitives ──────────────
+   نمط قابل لإعادة الاستخدام للصفحات التي تحتوي نموذجًا صغيرًا بجانب جدول كبير.
+   Reusable pattern for pages with a compact form beside a large table.
+   الاستخدام / Usage (للمهام 5، 8، 10 / for todos 5, 8, 10):
+
+     <div class="form-table-layout">
+       <section class="form-panel app-card page-card">...نموذج / form...</section>
+       <section class="table-panel app-card page-card">
+         <div class="page-card-header">...عنوان + عدّاد / title + count...</div>
+         <div class="table-scroll"><table>...</table></div>
+       </section>
+     </div>
+
+   - عمود واحد على الهاتف/التابلت، عمودان من xl (1fr : 2fr).
+     1 column on phone/tablet, 2 columns (1fr : 2fr) from xl.
+   - .form-panel يثبت على الشاشات العريضة فقط / sticky only on wide screens.
+   - .table-scroll يمرّر أفقيًا وعموديًا بشكل مستقل حتى لا تنضغط الأعمدة.
+     Independent horizontal + vertical scrolling so columns never smush.
+   - كل المسافات من مقياس --space-* / all spacing comes from the --space-* scale.
+   ─────────────────────────────────────────────────────────────────────── */
+.form-table-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:var(--space-5); align-items:start; }
+@media (min-width:1280px) {
+  .form-table-layout { grid-template-columns:minmax(18rem,1fr) minmax(0,2fr); }
+}
+.form-panel { min-width:0; }
+@media (min-width:1280px) {
+  .form-panel { position:sticky; top:var(--sticky-top); max-height:calc(100vh - 2 * var(--sticky-top)); overflow-y:auto; overscroll-behavior:contain; }
+}
+.table-panel { min-width:0; }
+
+/* مساعدات البطاقة / card spacing helpers */
+.page-card { padding:var(--space-5); }
+.page-card-header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-block-end:var(--space-4); }
+.page-card-title { font-weight:700; color:var(--primary); font-size:1rem; }
+.page-card-body > * + * { margin-block-start:var(--space-3); }
+
+/* شبكات الحقول / field grids — لا تنضغط الحقول على 390px */
+.form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap:var(--space-3); }
+.form-grid-2 { display:grid; grid-template-columns:minmax(0,1fr); gap:var(--space-3); }
+@media (min-width:480px) { .form-grid-2 { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.form-actions { display:flex; flex-wrap:wrap; gap:var(--space-2); margin-block-start:var(--space-4); }
+
+/* جدول - table */
+.table-wrap, .table-scroll {
+  overflow:auto;
+  min-inline-size:0;
+  max-inline-size:100%;
+  max-block-size:min(65vh, 34rem);
+  overscroll-behavior:contain;
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  background:var(--surface);
+}
+.table-wrap table, .table-scroll table { min-inline-size:44rem; }
+table { inline-size:100%; border-collapse:separate; border-spacing:0; font-size:.9rem; }
+th, td { padding:.8rem .85rem; border-bottom:1px solid var(--border-subtle); text-align:right; white-space:nowrap; }
+th { background:#f8fbff; color:#1e293b; font-weight:700; position:sticky; top:0; z-index:1; }
+tbody tr:hover td { background:#f5f9ff; }
+tr:last-child td { border-bottom:0; }
+
+/* شارات الحالة - status badges (RTL-safe: logical sizing + inherited direction) */
+.status { display:inline-flex; flex-direction:row; align-items:center; gap:var(--space-2); padding:.25rem .65rem; border-radius:999px; font-size:.78rem; font-weight:700; line-height:1.2; white-space:nowrap; }
+.status::before { content:""; inline-size:.45rem; block-size:.45rem; flex:0 0 auto; border-radius:999px; background:currentColor; }
+.s-PRESENT { background:#ecfdf3; color:#15803d; }
+.s-GRACE { background:#fffbeb; color:#b45309; }
+.s-LATE { background:#fef2f2; color:#b91c1c; }
+.s-ABSENT { background:#fff1f2; color:#be123c; }
+.s-INCOMPLETE { background:#eff6ff; color:#1d4ed8; }
+.s-LEAVE, .s-PENDING { background:#eef2ff; color:#4338ca; }
+.s-APPROVED { background:#ecfdf3; color:#15803d; }
+.s-REJECTED { background:#fef2f2; color:#b91c1c; }
+
+/* File manager overrides - تحسين شكل مدير الملفات */
+.fm-shell .file-explorer { border-radius: var(--radius-lg) !important; border: 1px solid var(--border) !important; }
+.fm-shell .toolbar { background: #f8fbff !important; border-bottom: 1px solid var(--border) !important; }
+.fm-shell .bread-crumb-container { background:#fff !important; }
+.fm-shell .file-item-container { border-radius: var(--radius-md) !important; }
+.fm-shell .file-selected { background: #eaf2ff !important; }
+.fm-shell .grid-layout .file-item-container { background:#fff; border:1px solid transparent; }
+.fm-shell .grid-layout .file-item-container:hover { border-color:var(--border); background:#fbfdff; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
