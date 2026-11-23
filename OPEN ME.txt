@@ -1,0 +1,72 @@
+OPEN ME - How to start the HRMS project
+=======================================
+
+Project folder:
+C:\Users\Ziad\Desktop\Projects_Githup\hr system\hrms
+
+Quick start (Windows PowerShell, from the project folder)
+---------------------------------------------------------
+
+If node_modules already exists:
+
+  npm run dev
+
+Then open:
+
+  http://localhost:3000
+
+Do not use 127.0.0.1.
+
+Fresh setup (first time or after deleting node_modules)
+-------------------------------------------------------
+
+  npm ci
+  if (!(Test-Path .env)) { Copy-Item .env.example .env }
+  npx prisma generate
+  npx prisma migrate deploy
+  npm run dev
+
+Notes:
+- .env should contain:
+    DATABASE_URL="file:./dev.db"
+    JWT_SECRET="replace-with-a-strong-secret"
+- The bundled prisma/dev.db is already seeded. Do NOT delete it and do NOT run
+  `npx prisma migrate reset`; that would remove the test users and demo data.
+- If you change prisma/schema.prisma and get 500 errors, run:
+    npx prisma generate
+  then stop the dev server (Ctrl+C) and run `npm run dev` again.
+
+Test accounts and what you should see
+-------------------------------------
+
+Role             Email                      Password          What you should see
+---------------- -------------------------- ----------------  --------------------------------------------------------------
+HR               hr@hrms.local              Hr@12345          full CRUD: create, edit, rename, delete, import, permissions
+ADMIN            admin@hrms.local           Admin@12345       create + read only: no edit/delete/import/share
+VIEWER           viewer@hrms.local          Viewer@12345      read-only
+HR_SUPER_ADMIN   superadmin@hrms.local      SuperAdmin@12345  full CRUD
+
+Permission differences
+----------------------
+The table above describes legacy Documents/Files permissions from the original
+HRMS app: create/read/update/delete/import/share(manage permissions/read all
+files). HR and HR_SUPER_ADMIN get full document CRUD. ADMIN can create/upload
+and read, but cannot edit, delete, import, or share. VIEWER can only read.
+
+Employee lifecycle permissions are separate and stricter:
+- HR_SUPER_ADMIN: full employee lifecycle (create, edit, delete, restore,
+  provision accounts, seed).
+- HR: can create employees, but cannot edit/delete/restore/provision.
+- ADMIN: can provision fixed-role EMPLOYEE accounts and read only four employee
+  fields (employeeId, name, email, status); no employee create/edit/delete/import/share.
+- VIEWER: read-only.
+- EMPLOYEE accounts are created through ADMIN provisioning + invite link; there
+  is no hardcoded EMPLOYEE password.
+
+Optional checks
+---------------
+
+  npm test -- --runInBand
+  npm run build
+
+Stop the dev server with Ctrl+C in the same terminal.
