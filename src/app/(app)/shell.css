@@ -1,0 +1,175 @@
+/* src/app/(app)/shell.css - أنماط هيكل التطبيق / App shell styles
+   طبقة أنماط مشتقة من رموز globals.css (للقراءة فقط) - token-driven layer over read-only globals.css */
+
+.app-shell {
+  /* أبعاد - dimensions */
+  --shell-sidebar-w: 270px;
+  --shell-rail-w: 76px;
+  --shell-header-h: 56px;
+  --shell-drawer-w: 280px;
+
+  /* مسافات - spacing (4px rhythm) */
+  --shell-space-1: 4px;
+  --shell-space-2: 8px;
+  --shell-space-3: 12px;
+  --shell-space-4: 16px;
+
+  /* زوايا - radii */
+  --shell-radius-md: 10px;
+  --shell-radius-lg: 14px;
+
+  /* ألوان مشتقة من الهوية الحالية - derived from the existing brand */
+  --shell-primary-deep: #0f2f59;
+  --shell-on-primary: #ffffff;
+  --shell-on-primary-muted: rgba(255, 255, 255, 0.72);
+  --shell-on-primary-hover: rgba(255, 255, 255, 0.12);
+  --shell-on-primary-active: rgba(255, 255, 255, 0.18);
+  --shell-on-primary-border: rgba(255, 255, 255, 0.16);
+  --shell-focus: #93c5fd;
+  --shell-warning: #fcd34d;
+
+  /* حركة - motion */
+  --shell-motion: 180ms ease;
+
+  min-height: 100vh;
+  transition: grid-template-columns var(--shell-motion);
+}
+
+.app-shell[data-collapsed="true"] { --shell-sidebar-w: var(--shell-rail-w); }
+
+@media (min-width: 768px) {
+  .app-shell { display: grid; grid-template-columns: var(--shell-sidebar-w) minmax(0, 1fr); }
+}
+
+/* حلقة تركيز واضحة على كل عنصر تفاعلي - visible focus ring on every control */
+.app-shell :focus-visible { outline: 2px solid var(--shell-focus); outline-offset: 2px; }
+
+.app-desktop-sidebar { display: none; }
+@media (min-width: 768px) { .app-desktop-sidebar { display: block; } }
+
+/* الشريط الجانبي - sidebar */
+.app-sidebar {
+  background: linear-gradient(180deg, var(--primary) 0%, var(--shell-primary-deep) 100%);
+  color: var(--shell-on-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--shell-space-4);
+  min-height: 100vh;
+  padding: var(--shell-space-4);
+  border-inline-start: 1px solid var(--shell-on-primary-border);
+  overflow: hidden;
+}
+@media (min-width: 768px) {
+  .app-sidebar { position: sticky; top: 0; height: 100vh; }
+}
+
+.app-sidebar-top { display: flex; align-items: center; min-height: 40px; padding-inline: var(--shell-space-1); }
+.app-sidebar[data-collapsed="true"] .app-sidebar-top { justify-content: center; padding-inline: 0; }
+
+/* أزرار الأيقونات - icon buttons */
+.app-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border: 1px solid var(--shell-on-primary-border);
+  border-radius: var(--shell-radius-md);
+  background: var(--shell-on-primary-hover);
+  color: var(--shell-on-primary);
+  cursor: pointer;
+  transition: background var(--shell-motion), border-color var(--shell-motion);
+}
+.app-icon-button:hover { background: var(--shell-on-primary-active); }
+.app-icon-button svg { inline-size: 18px; block-size: 18px; }
+
+/* التنقل - navigation */
+.app-nav { display: flex; flex-direction: column; gap: var(--shell-space-2); flex: 1; min-height: 0; }
+.app-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--shell-space-3);
+  min-height: 44px;
+  padding: var(--shell-space-2) var(--shell-space-3);
+  border-radius: var(--shell-radius-lg);
+  color: var(--shell-on-primary-muted);
+  font-size: .875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--shell-motion), color var(--shell-motion);
+}
+.app-nav-link:hover { background: var(--shell-on-primary-hover); color: var(--shell-on-primary); }
+.app-nav-link[data-active="true"] {
+  background: var(--shell-on-primary);
+  color: var(--primary);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+.app-nav-link svg { inline-size: 18px; block-size: 18px; flex: 0 0 auto; }
+.app-nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* سكة الأيقونات عند التصغير - collapsed icon rail */
+.app-sidebar[data-collapsed="true"] .app-nav-link { justify-content: center; padding-inline: 0; }
+.app-sidebar[data-collapsed="true"] .app-nav-label { display: none; }
+
+/* تذييل الشريط: المستخدم + الخروج - footer: user + logout */
+.app-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--shell-space-2);
+  padding-top: var(--shell-space-4);
+  border-top: 1px solid var(--shell-on-primary-border);
+}
+.app-user-name {
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--shell-on-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-auth-error { font-size: .75rem; color: var(--shell-warning); }
+.app-logout {
+  display: flex;
+  align-items: center;
+  gap: var(--shell-space-3);
+  min-height: 44px;
+  padding: var(--shell-space-2) var(--shell-space-3);
+  border: 1px solid var(--shell-on-primary-border);
+  border-radius: var(--shell-radius-md);
+  background: var(--shell-on-primary-hover);
+  color: var(--shell-on-primary);
+  font-size: .75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--shell-motion);
+}
+.app-logout:hover { background: var(--shell-on-primary-active); }
+.app-logout svg { inline-size: 16px; block-size: 16px; flex: 0 0 auto; }
+.app-sidebar[data-collapsed="true"] .app-logout { justify-content: center; padding-inline: 0; }
+.app-sidebar[data-collapsed="true"] .app-logout .app-nav-label { display: none; }
+
+/* رأس الجوال - mobile header (بدون عنوان صفحة - no page title) */
+.app-mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  min-height: var(--shell-header-h);
+  padding-inline: var(--shell-space-4);
+  background: var(--primary);
+  color: var(--shell-on-primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+}
+@media (min-width: 768px) { .app-mobile-header { display: none; } }
+
+/* درج الجوال - mobile drawer (RTL: يفتح من اليمين) */
+.app-drawer { position: fixed; inset: 0; z-index: 50; }
+.app-drawer-scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.35); }
+.app-drawer-panel {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: var(--shell-drawer-w);
+  max-inline-size: 85vw;
+}
