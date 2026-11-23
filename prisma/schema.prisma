@@ -12,11 +12,22 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
-  role         String   @default("HR") // ADMIN, HR, VIEWER
+  role         String   @default("HR") // HR_SUPER_ADMIN, ADMIN, HR, VIEWER, EMPLOYEE - أدوار المستخدمين
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   auditLogs    AuditLog[]
+  // علاقات الملفات - File relations (tracking + permissions)
+  uploadedDocuments  Document[]           @relation("DocumentUploadedBy")
+  updatedDocuments   Document[]           @relation("DocumentUpdatedBy")
+  documentVersions   DocumentVersion[]    @relation("VersionUploadedBy")
+  grantedPermissions DocumentPermission[] @relation("PermissionGrantedBy")
+  documentPermissions DocumentPermission[] @relation("PermissionUser")
+  // دورة حياة الموظف - Employee lifecycle
+  employeeId     String?       @unique
+  employee       Employee?     @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  provisionedBy  String?
+  inviteTokens   InviteToken[]
 }
 
 model Employee {
@@ -36,6 +47,26 @@ model Employee {
   attendance     AttendanceRecord[]
   leaves         LeaveRequest[]
   documents      Document[]
+  // دورة حياة الموظف - Employee lifecycle
+  email          String?
+  createdBy      String?
+  updatedBy      String?
+  deletedAt      DateTime?
+  restoredAt     DateTime?
+  account        User?
+}
+
+// InviteToken => دعوة إنشاء حساب الموظف - employee account invitation token
+model InviteToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model AttendanceRecord {
@@ -74,20 +105,78 @@ model LeaveRequest {
 }
 
 model Document {
-  id          String    @id @default(cuid())
-  employeeId  String?
-  title       String
-  category    String?
-  fileName    String
-  filePath    String
-  mimeType    String?
-  size        Int?
-  uploadedBy  String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  id             String    @id @default(cuid())
+  employeeId     String?
+  parentId       String?   // معرف المجلد الأب - parent folder id (null = root)
+  name           String    // اسم العرض - display name
+  isDirectory    Boolean   @default(false) // هل هو مجلد؟ - folder flag
+  path           String    // المسار المنطقي - logical path like /HR/Contracts/file.pdf
+  category       String?
+  fileName       String?   // اسم الملف المخزن - stored file name on disk
+  filePath       String?   // مسار التخزين النسبي - stored relative path under /uploads
+  mimeType       String?
+  size           Int?
+  uploadedBy     String?   // بريد/اسم الرافع للعرض السريع - uploader label for display
+  uploadedById   String?   // معرف الرافع - uploader user id (auto access)
+  updatedById    String?   // معرف آخر معدل - last modifier user id
+  currentVersion Int       @default(1) // رقم الإصدار الحالي - current version number
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  employee    Employee?            @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  parent      Document?            @relation("DocumentChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Document[]           @relation("DocumentChildren")
+  uploader    User?                @relation("DocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  updater     User?                @relation("DocumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  versions    DocumentVersion[]
+  permissions DocumentPermission[]
 
   @@index([employeeId])
+  @@index([parentId])
+  @@index([path])
+  @@index([uploadedById])
+}
+
+// DocumentVersion => سجل إصدارات الملف - file version history
+model DocumentVersion {
+  id           String   @id @default(cuid())
+  documentId   String
+  version      Int
+  name         String
+  fileName     String?
+  filePath     String?
+  mimeType     String?
+  size         Int?
+  uploadedBy   String?
+  uploadedById String?
+  action       String   @default("UPLOAD") // UPLOAD, RESTORE, RENAME_META
+  createdAt    DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploader User?    @relation("VersionUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([documentId, version])
+  @@index([documentId])
+  @@index([uploadedById])
+}
+
+// DocumentPermission => صلاحيات الوصول للملفات - admin-granted file/folder visibility
+model DocumentPermission {
+  id          String   @id @default(cuid())
+  documentId  String
+  userId      String
+  canView     Boolean  @default(true)
+  grantedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  document  Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user      User     @relation("PermissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy User?    @relation("PermissionGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@unique([documentId, userId])
+  @@index([userId])
+  @@index([documentId])
 }
 
 model AuditLog {
